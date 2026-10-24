@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  font-family: -apple-system, system-ui, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+main {
+  padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+  max-width: 600px;
+  margin: 0 auto;
+}
+h1 { margin-top: 40px; }
