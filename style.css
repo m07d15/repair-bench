@@ -10,3 +10,12 @@ main {
   margin: 0 auto;
 }
 h1 { margin-top: 40px; }
+button {
+  font: inherit; font-weight: 600; padding: 12px 18px;
+  border: 0; border-radius: 10px;
+  background: #38bdf8; color: #0f172a;
+}
+pre {
+  white-space: pre-wrap; background: #1e293b;
+  padding: 12px; border-radius: 10px; min-height: 1em;
+}

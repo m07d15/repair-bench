@@ -1,6 +1,6 @@
-const CACHE = 'repair-bench-v1';
+const CACHE = 'repair-bench-v2';
 const FILES = [
-  './', './index.html', './style.css', './app.js',
+  './', './index.html', './style.css', './app.js', './db.js',
   './manifest.webmanifest', './icon-180.png', './icon-512.png'
 ];
 
