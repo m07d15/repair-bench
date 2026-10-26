@@ -35,7 +35,7 @@ export async function renderForm(root, id) {
       const data = Object.fromEntries(new FormData(e.target));
       if (editing) await updateDevice(id, data);
       else await addDevice(data);
-      location.hash = '#/';
+      location.hash = editing ? `#/device/${id}` : '#/';
     } catch (err) {
       errorBox.textContent = err.message;
       saveBtn.disabled = false;
@@ -75,7 +75,7 @@ export async function renderForm(root, id) {
     errorBox,
     h('div', { class: 'actions' },
       saveBtn,
-      h('a', { class: 'button secondary', href: '#/' }, 'Cancel')),
+      h('a', { class: 'button secondary', href: editing ? `#/device/${id}` : '#/' }, 'Cancel')),
     editing && h('button', { type: 'button', class: 'danger', onclick: onDelete },
       'Delete device'));
 

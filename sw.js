@@ -1,12 +1,17 @@
-const CACHE = 'repair-bench-v3';
+const CACHE = 'repair-bench-v10';
 const FILES = [
   './', './index.html', './style.css', './app.js', './db.js',
-  './util.js', './view-list.js', './view-form.js',
+  './util.js', './images.js', './photos-ui.js', './finder.js',
+  './backup.js', './view-backup.js',
+  './view-list.js', './view-form.js',
+  './view-detail.js', './view-repair-form.js',
   './manifest.webmanifest', './icon-180.png', './icon-512.png'
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+  // cache: 'reload' skips the browser's own cache, so we never save stale copies.
+  e.waitUntil(caches.open(CACHE).then(c =>
+    c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))));
   self.skipWaiting();
 });
 

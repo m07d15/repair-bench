@@ -165,3 +165,139 @@ export async function deleteRepair(id) {
   const store = await getStore('repairs', 'readwrite');
   return wrap(store.delete(id));
 }
+
+export async function getRepair(id) {
+  const store = await getStore('repairs');
+  return wrap(store.get(id));
+}
+
+export async function updateRepair(id, data) {
+  const record = cleanRepair(data);
+  const store = await getStore('repairs', 'readwrite');
+  const existing = await wrap(store.get(id));
+  if (!existing) throw new Error('Repair not found');
+  return wrap(store.put({ ...existing, ...record, id }));
+}
+
+// ---------- Photos ----------
+
+export async function getPhotos(deviceId) {
+  const store = await getStore('photos');
+  const list = await wrap(store.index('deviceId').getAll(IDBKeyRange.only(deviceId)));
+  return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// Saves a photo. If the device has no cover picture yet, this one becomes the cover.
+export async function addPhoto(deviceId, blob, thumb, source = null) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['devices', 'photos'], 'readwrite');
+    const devices = tx.objectStore('devices');
+    let photoId;
+    const devReq = devices.get(deviceId);
+    devReq.onsuccess = () => {
+      const device = devReq.result;
+      if (!device) { tx.abort(); return; }
+      const addReq = tx.objectStore('photos').add({
+        deviceId, repairId: null, blob, thumb, source, createdAt: Date.now(),
+      });
+      addReq.onsuccess = () => {
+        photoId = addReq.result;
+        if (!device.coverPhotoId) {
+          device.coverPhotoId = photoId;
+          device.coverThumb = thumb;
+          devices.put(device);
+        }
+      };
+    };
+    tx.oncomplete = () => resolve(photoId);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Device not found'));
+  });
+}
+
+export async function setCoverPhoto(photoId) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['devices', 'photos'], 'readwrite');
+    const photoReq = tx.objectStore('photos').get(photoId);
+    photoReq.onsuccess = () => {
+      const photo = photoReq.result;
+      if (!photo) { tx.abort(); return; }
+      const devices = tx.objectStore('devices');
+      const devReq = devices.get(photo.deviceId);
+      devReq.onsuccess = () => {
+        const device = devReq.result;
+        if (!device) { tx.abort(); return; }
+        device.coverPhotoId = photoId;
+        device.coverThumb = photo.thumb;
+        devices.put(device);
+      };
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Photo not found'));
+  });
+}
+
+// Deletes one photo. If it was the cover, the newest remaining photo takes over.
+export async function deletePhoto(photoId) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['devices', 'photos'], 'readwrite');
+    const photos = tx.objectStore('photos');
+    const photoReq = photos.get(photoId);
+    photoReq.onsuccess = () => {
+      const photo = photoReq.result;
+      if (!photo) return;
+      photos.delete(photoId);
+      const devices = tx.objectStore('devices');
+      const devReq = devices.get(photo.deviceId);
+      devReq.onsuccess = () => {
+        const device = devReq.result;
+        if (!device || device.coverPhotoId !== photoId) return;
+        const listReq = photos.index('deviceId').getAll(IDBKeyRange.only(photo.deviceId));
+        listReq.onsuccess = () => {
+          const rest = listReq.result
+            .filter(p => p.id !== photoId)
+            .sort((a, b) => b.createdAt - a.createdAt);
+          device.coverPhotoId = rest[0]?.id ?? null;
+          device.coverThumb = rest[0]?.thumb ?? null;
+          devices.put(device);
+        };
+      };
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+// ---------- Backup support ----------
+
+export async function getAllRecords() {
+  const db = await openDb();
+  const tx = db.transaction(['devices', 'repairs', 'photos'], 'readonly');
+  const [devices, repairs, photos] = await Promise.all([
+    wrap(tx.objectStore('devices').getAll()),
+    wrap(tx.objectStore('repairs').getAll()),
+    wrap(tx.objectStore('photos').getAll()),
+  ]);
+  return { devices, repairs, photos };
+}
+
+// Replaces everything in the database with these records, all or nothing.
+export async function replaceAllRecords({ devices, repairs, photos }) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['devices', 'repairs', 'photos'], 'readwrite');
+    for (const [name, records] of Object.entries({ devices, repairs, photos })) {
+      const store = tx.objectStore(name);
+      store.clear();
+      for (const record of records) store.put(record);
+    }
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}

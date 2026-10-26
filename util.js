@@ -21,3 +21,18 @@ export function money(n) {
   if (n === null || n === undefined) return 'not set';
   return `${Number(n).toLocaleString('en', { maximumFractionDigits: 2 })} AED`;
 }
+
+// Picture URLs made from stored images. We remember them so the app can
+// release them when you move to another screen.
+let blobUrls = [];
+
+export function blobUrl(blob) {
+  const url = URL.createObjectURL(blob);
+  blobUrls.push(url);
+  return url;
+}
+
+export function revokeBlobUrls() {
+  blobUrls.forEach(u => URL.revokeObjectURL(u));
+  blobUrls = [];
+}
